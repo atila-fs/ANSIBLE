@@ -1,0 +1,26 @@
+- name: Verificar eventos Kerberos e DNS Client nos últimos 24h
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Buscar eventos Kerberos e DNS Client (últimas 24h)
+      win_shell: |
+        $startTime = (Get-Date).AddHours(-24)
+
+        # Kerberos (ID 4)
+        $kerberos = Get-WinEvent -FilterHashtable @{LogName="System"; Id=4; StartTime=$startTime} |
+          Where-Object { $_.ProviderName -like "*Kerberos*" } |
+          Select-Object -First 1
+
+        # DNS (ID 1014)
+        $dns = Get-WinEvent -FilterHashtable @{LogName="System"; Id=1014; StartTime=$startTime} |
+          Where-Object { $_.ProviderName -like "*DNS*" } |
+          Select-Object -First 1
+
+        if ($kerberos) { "KERBEROS_ERROR_FOUND" } else { "NO_KERBEROS" }
+        if ($dns) { "DNS_ERROR_FOUND" } else { "NO_DNS" }
+      register: resultado_eventos
+
+    - name: Mostrar resultado por host
+      debug:
+        msg: "{{ inventory_hostname }} → {{ resultado_eventos.stdout_lines }}"

@@ -1,0 +1,21 @@
+---
+- name: Rebootar servidor Windows
+  hosts: all
+  gather_facts: yes
+  vars_files:
+    - group_vars/windows.yml
+
+  tasks:
+    - name: Reiniciar o servidor Windows
+      win_reboot:
+        reboot_timeout: 1000
+        test_command: powershell -Command "(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime"
+      register: rbt
+
+    - name: Exibir resultado completo do reboot
+      debug:
+        var: rbt
+
+    - name: Exibir status do reboot
+      debug:
+        msg: "Servidor foi reiniciado {{ rbt.rebooted }}"

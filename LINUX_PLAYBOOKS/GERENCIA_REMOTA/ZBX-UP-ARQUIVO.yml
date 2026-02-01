@@ -1,0 +1,51 @@
+---
+- name: Criar pasta e arquivo e adicionar linha no arquivo de configuração
+  hosts: all
+  become: true
+  tasks:
+    - name: Criar pasta scripts
+      file:
+        path: /etc/zabbix/scripts
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+        
+    - name: Criar arquivo kurento.conf
+      copy:
+        dest: /etc/zabbix/scripts/kurento.conf
+        content: |
+          UserParameter=KRT,docker container ls -a | grep "kurento/kurento-media-server:6.16.0" | awk '{print $8}'
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Adicionar linha no arquivo de configuração
+      lineinfile:
+        path: /etc/zabbix/zabbix_agent2.conf
+        line: 'Include=/etc/zabbix/scripts/*.conf'
+        insertafter: EOF
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Valida se as alterações foram realmente feitas
+      shell: cat /etc/zabbix/zabbix_agent2.conf | grep Include
+      register: cat
+    - name: Cat no arquivo de configuração
+      debug:
+        var: cat.stdout_lines
+
+    - name: Reinicia Zabbix Agent
+      shell: systemctl restart zabbix-agent2
+      register: cat2
+    - name: Status do restart 
+      debug:
+        var: cat2.stdout_lines
+    
+    - name: Status Zabbix Agent
+      shell: systemctl status zabbix-agent2
+      register: cat3
+    - name: Status do agent 
+      debug:
+        var: cat3.stdout_lines

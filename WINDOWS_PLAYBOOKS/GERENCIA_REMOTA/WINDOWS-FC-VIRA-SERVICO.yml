@@ -1,0 +1,14 @@
+---
+- name:  Faz o Failover do serviço para outro node
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Executar PowerShell para executar o failover
+      win_shell: |
+        Move-ClusterGroup -Name "Clr_MonitorSafeId_Safeweb"
+      register: command_result
+
+    - name: Verificar se o comando foi bem-sucedido
+      debug:
+        msg: "Comando executado com sucesso!"
+      when: command_result.rc == 0

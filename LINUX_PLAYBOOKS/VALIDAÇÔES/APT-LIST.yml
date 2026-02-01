@@ -1,0 +1,14 @@
+---
+- name: Valida oque tem de patch para ser aplicado
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Realiza o comando apt list para validar
+      shell: apt list --upgradeable
+      register: cat_output
+      changed_when: false
+
+    - name: Imprime no terminal a informação
+      debug:
+        var: cat_output.stdout_lines

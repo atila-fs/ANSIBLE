@@ -1,0 +1,18 @@
+---
+- name: Reboot de servidor Linux com verificação
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Reboot controlado do servidor
+      ansible.builtin.reboot:
+        reboot_timeout: 600  
+        test_command: whoami 
+
+    - name: Verifica se o servidor está operacional com uptime
+      ansible.builtin.command: uptime
+      register: uptime_result
+
+    - name: Mostra o resultado do uptime
+      debug:
+        var: uptime_result.stdout

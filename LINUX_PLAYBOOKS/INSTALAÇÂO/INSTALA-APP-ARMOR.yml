@@ -1,0 +1,40 @@
+---
+- name: Instala o serviço Apparmor no Ubuntu
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualiza a lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Instala o Apparmor
+      apt:
+        name: apparmor
+        state: latest
+      register: install
+    - name: Status instalação
+      debug:
+        var: install.stdout_lines
+
+    - name: Habilitar o serviço do Apparmor
+      shell: systemctl enable apparmor
+      register: enable
+    - name: Status da ação
+      debug:
+        var: enable.stdout_lines
+
+    - name: Reiniciar o serviço Apparmor
+      shell: systemctl restart apparmor
+      register: restart
+    - name: Status do restart
+      debug:
+        var: restart.stdout_lines
+
+    - name: Mostra o status do serviço Apparmor
+      shell: systemctl status apparmor
+      register: status
+    - name: Exibe o status
+      debug:
+        var: status.stdout_lines
+

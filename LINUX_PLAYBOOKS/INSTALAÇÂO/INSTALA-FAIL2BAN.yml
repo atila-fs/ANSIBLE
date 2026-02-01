@@ -1,0 +1,40 @@
+---
+- name: Instala o serviço Fail2ban no Ubuntu
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualiza a lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Instala o Fail2ban
+      apt:
+        name: fail2ban
+        state: latest
+      register: install
+    - name: Status instalação
+      debug:
+        var: install.stdout_lines
+
+    - name: Habilitar o serviço do Fail2ban
+      shell: systemctl enable fail2ban
+      register: enable
+    - name: Status da ação
+      debug:
+        var: enable.stdout_lines
+
+    - name: Reiniciar o serviço Fail2ban
+      shell: systemctl restart fail2ban
+      register: restart
+    - name: Status do restart
+      debug:
+        var: restart.stdout_lines
+
+    - name: Mostra o status do serviço Fail2ban
+      shell: systemctl status fail2ban
+      register: status
+    - name: Exibe o status
+      debug:
+        var: status.stdout_lines
+

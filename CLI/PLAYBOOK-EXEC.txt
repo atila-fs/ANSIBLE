@@ -1,0 +1,15 @@
+=========================================== COMANDO PARA EXECUTAR UM PLAYBOOK LINUX =================================================================================================
+ansible-playbook -i /etc/ansible/host-files/hosts /etc/ansible/playbooks/confere-netplan.yml -l linux -u sysadmin -kK
+
+
+
+=========================================== EXPLICAÇÃO DO COMANDO =============================================================================================================
+ansible-playbook = comando para executar um playbook
+-i = informa qual o inventario deve ser executado 
+/etc/ansible/host-files/hosts = caminho do inventario 
+/etc/ansible/playbooks/confere-netplan.yml = caminho do playbook 
+-l = informa qual grupo do inventario deve ser utilzado 
+linux = nome do grupo do inventario 
+-u = parametro para informar o usuário 
+sysadmin = usuário a ser utilizado 
+-kK = parametro para pedir os dois password de login e become ao efetuar o login 

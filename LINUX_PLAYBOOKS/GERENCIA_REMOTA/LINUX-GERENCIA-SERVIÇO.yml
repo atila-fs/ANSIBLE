@@ -1,0 +1,19 @@
+---
+- name: Gerenciar serviço no Linux
+  hosts: all
+  gather_facts: false
+  vars:
+    service_name: ""      # Nome do serviço - informado via survey
+    service_action: ""    # start | stop | restart - informado via survey
+
+  tasks:
+
+    - name: Validar entrada da ação (start, stop ou restart)
+      ansible.builtin.assert:
+        that:
+          - service_action in ['start', 'stop', 'restart']
+        fail_msg: "A ação '{{ service_action }}' não é válida. Use: start, stop ou restart."
+
+    - name: Executar systemctl {{ service_action }} no serviço {{ service_name }}
+      ansible.builtin.command:
+        cmd: "systemctl {{ service_action }} {{ service_name }}"

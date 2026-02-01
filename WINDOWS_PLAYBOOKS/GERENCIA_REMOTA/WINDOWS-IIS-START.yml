@@ -1,0 +1,14 @@
+---
+- name:  Iniciar o IIS
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Executar PowerShell para iniciar o IIS
+      win_shell: |
+        Start-Service -Name 'W3SVC'
+      register: command_result
+
+    - name: Verificar se o comando foi bem-sucedido
+      debug:
+        msg: "Comando executado com sucesso!"
+      when: command_result.rc == 0

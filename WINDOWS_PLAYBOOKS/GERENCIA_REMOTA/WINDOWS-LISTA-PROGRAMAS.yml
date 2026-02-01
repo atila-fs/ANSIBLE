@@ -1,0 +1,14 @@
+---
+- name:  Lista Programas Windows
+  hosts: all
+  gather_facts: no
+  vars: 
+    prm: ""
+  tasks:
+    - name: Executar PowerShell para listar programas
+      win_shell: |
+         Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |Where-Object { $_.DisplayName -match "{{ prm }}" } |Select-Object DisplayName, DisplayVersion, Publisher, UninstallString 
+      register: command_result
+
+    - debug:
+        var: command_result.stdout_lines

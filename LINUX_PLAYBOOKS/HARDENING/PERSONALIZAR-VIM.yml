@@ -1,0 +1,27 @@
+- name: Melhorar o VIM para root
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: Garantir que o .vimrc do root existe
+      ansible.builtin.file:
+        path: /root/.vimrc
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configurar .vimrc do root
+      ansible.builtin.blockinfile:
+        path: /root/.vimrc
+        marker: "\" {mark} CONFIGURAÇÃO PERSONALIZADA DO VIM"
+        block: |
+          syntax on
+          set number
+          set background=dark
+          set tabstop=4
+          set shiftwidth=4
+          set expandtab
+          set autoindent
+          set smartindent

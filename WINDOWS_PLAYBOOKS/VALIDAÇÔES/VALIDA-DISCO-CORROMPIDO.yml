@@ -1,0 +1,49 @@
+---
+- name: Validação de disco no Windows
+  hosts: all
+  gather_facts: false
+  vars:
+    drive_letter: "C:"
+
+  tasks:
+    - name: Rodar CHKDSK com /f
+      ansible.windows.win_shell: |
+        chkdsk {{ drive_letter }} /f
+      register: chkdsk_result
+      changed_when: false
+      failed_when: false
+
+    - name: Verificar dirty bit do volume
+      ansible.windows.win_shell: |
+        fsutil dirty query {{ drive_letter }}
+      register: dirty_query
+      changed_when: false
+      failed_when: false
+
+    - name: Coletar erros NTFS recentes
+      ansible.windows.win_shell: |
+        Get-WinEvent -FilterHashtable @{
+          LogName='System'; ProviderName='Ntfs'; Level=2
+        } -ErrorAction SilentlyContinue |
+          Select-Object -First 10 TimeCreated, Id, Message |
+          Format-List | Out-String
+      register: ntfs_errors
+      changed_when: false
+      failed_when: false
+
+    - name: Resumo legível no AWX
+      ansible.builtin.debug:
+        msg:
+          - "==== Resultado CHKDSK ===="
+          - "{{ chkdsk_result.stdout | default('sem saída') }}"
+          - "==== Dirty bit {{ drive_letter }} ===="
+          - "{{ dirty_query.stdout | default('indefinido') }}"
+          - "==== NTFS erros recentes ===="
+          - "{{ ntfs_errors.stdout | default('sem eventos') }}"
+
+    - name: Falhar se disco sujo ou NTFS com erro
+      ansible.builtin.fail:
+        msg: "Disco possivelmente corrompido. Verifique saída do CHKDSK e eventos NTFS."
+      when:
+        - dirty_query.stdout is search('is dirty', ignorecase=True)
+          or (ntfs_errors.stdout is defined and ntfs_errors.stdout|length > 0)

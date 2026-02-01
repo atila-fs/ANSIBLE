@@ -1,0 +1,12 @@
+---
+- name: Valida porta 161 
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Valida porta 161 
+      shell: netstat -tulpn | grep :161
+      register: command0
+    - name: Saida do comando
+      debug:
+        var: command0.stdout_lines

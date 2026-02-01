@@ -1,0 +1,49 @@
+---
+- name: Instalar pacotes utilitários em servidores Linux
+  hosts: all
+  become: true
+
+  vars:
+    pacotes_utilitarios:
+      - tree
+      - net-tools
+      - jq
+      - traceroute
+      - htop
+      - ncdu
+      - bat 
+      - git
+      - vim
+      - bash-completion
+      - ldap-utils
+      - realmd 
+      - libnss-sss 
+      - libpam-sss 
+      - sssd 
+      - sssd-tools 
+      - adcli 
+      - samba-common-bin 
+      - oddjob 
+      - oddjob-mkhomedir 
+      - packagekit
+      - auditd
+      - fail2ban
+
+  tasks:
+    - name: Verificar o gerenciador de pacotes
+      ansible.builtin.raw: which dnf || which yum || which apt
+      register: pkg_mgr
+      changed_when: false
+
+    - name: Instalar pacotes em distros baseadas em RedHat
+      ansible.builtin.package:
+        name: "{{ pacotes_utilitarios }}"
+        state: present
+      when: "'dnf' in pkg_mgr.stdout or 'yum' in pkg_mgr.stdout"
+
+    - name: Instalar pacotes em distros baseadas em Debian
+      ansible.builtin.apt:
+        name: "{{ pacotes_utilitarios }}"
+        state: present
+        update_cache: true
+      when: "'apt' in pkg_mgr.stdout"

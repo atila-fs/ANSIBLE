@@ -1,0 +1,14 @@
+---
+- name: ZBX Agent Restart
+  hosts: all
+  become: true
+  tasks:
+    - name: Reinicia o Zabbix Agent 2
+      ansible.builtin.shell: |
+        systemctl restart zabbix-agent2
+      register: config_info
+      changed_when: false
+
+    - name: Exibir informações extraídas
+      debug:
+        var: config_info.stdout_lines

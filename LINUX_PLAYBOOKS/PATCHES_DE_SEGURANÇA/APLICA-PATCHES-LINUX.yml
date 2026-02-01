@@ -1,0 +1,31 @@
+---
+- name: Atualizar pacotes no sistema
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualizar repositórios com apt-get update
+      apt:
+        update_cache: yes
+
+    - name: Listar pacotes atualizáveis
+      shell: "apt list --upgradeable 2>/dev/null | tail -n +2"
+      register: apt_upgradeable
+      changed_when: false
+      ignore_errors: true
+
+    - name: Mostrar pacotes pendentes para atualização (se houver)
+      debug:
+        msg: "{{ apt_upgradeable.stdout_lines }}"
+      when: apt_upgradeable.stdout | length > 0
+
+    - name: Atualizar todos os pacotes para a versão mais recente
+      apt:
+        upgrade: dist
+      register: apt_output
+      when: apt_upgradeable.stdout | length > 0 
+
+    - name: Mostrar saída da atualização
+      debug:
+        msg: "{{ apt_output.stdout }}"
+      when: apt_output.stdout is defined

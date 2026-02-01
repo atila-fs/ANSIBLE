@@ -1,0 +1,10 @@
+---
+- name: Realiza o scan de inventarios nos ativos
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Get ansible facts
+      debug:
+        var: ansible_facts
+---

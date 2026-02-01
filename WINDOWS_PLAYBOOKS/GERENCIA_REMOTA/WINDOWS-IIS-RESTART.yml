@@ -1,0 +1,14 @@
+---
+- name: Reiniciar o IIS
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Reiniciar o IIS com PowerShell
+      win_shell: |
+        Restart-Service -Name 'W3SVC' -Force
+      register: command_result
+
+    - name: Verificar se o comando foi bem-sucedido
+      debug:
+        msg: "IIS reiniciado com sucesso!"
+      when: command_result.rc == 0

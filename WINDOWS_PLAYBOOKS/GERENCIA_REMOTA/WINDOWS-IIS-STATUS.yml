@@ -1,0 +1,36 @@
+---
+- name: Validar Status do IIS Completo
+  hosts: all
+  gather_facts: no
+  vars:
+    site_name: "AWX HEALTH CHECK"
+    hc_file: "HC.txt"
+
+  tasks:
+    - name: Verificar o estado do serviço W3SVC
+      ansible.windows.win_service:
+        name: W3SVC
+      register: iis_service_info
+
+    - name: Confirmar se o serviço está no estado 'running'
+      ansible.builtin.assert:
+        that:
+          - iis_service_info.state == 'running'
+        fail_msg: "O serviço do IIS (W3SVC) não está rodando. Estado atual: {{ iis_service_info.state }}"
+        success_msg: "O serviço do Windows (W3SVC) está rodando."
+
+    - name: Realizar teste funcional (Request no {{ hc_file }})
+      ansible.windows.win_uri:
+        url: "http://localhost/{{ hc_file }}"
+        method: GET
+      register: http_check
+      ignore_errors: yes
+
+    - name: Validar resposta HTTP
+      ansible.builtin.fail:
+        msg: "ERRO: O serviço roda, mas o arquivo não retornou 200. Código recebido: {{ http_check.status_code }}. Verifique se o arquivo '{{ hc_file }}' existe na pasta correta."
+      when: http_check.status_code != 200
+
+    - name: Mensagem de Sucesso Final
+      ansible.builtin.debug:
+        msg: "SUCESSO: Serviço W3SVC Ativo, Site '{{ site_name }}' iniciado e '{{ hc_file }}' respondendo 200 OK."

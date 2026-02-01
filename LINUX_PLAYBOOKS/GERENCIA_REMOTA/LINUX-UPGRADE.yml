@@ -1,0 +1,14 @@
+---
+- name: Aplica os patches
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Executar apt-get update
+      apt:
+        update_cache: yes
+
+    - name: Executar apt-get upgrade
+      apt:
+        upgrade: yes
+        update_cache: yes 

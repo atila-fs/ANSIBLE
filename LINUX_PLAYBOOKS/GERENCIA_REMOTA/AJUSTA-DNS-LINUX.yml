@@ -1,0 +1,69 @@
+- name: Atualizar bloco de nameservers no Netplan
+  hosts: all
+  become: true
+  vars:
+    netplan_dir: /etc/netplan
+  tasks:
+
+    - name: Encontra o arquivo YAML do Netplan
+      find:
+        paths: "{{ netplan_dir }}"
+        patterns: "*.yaml"
+        use_regex: false
+      register: netplan_files
+
+    - name: Failsafe - Garante que encontrou exatamente um arquivo Netplan
+      fail:
+        msg: "Esperado exatamente 1 arquivo YAML em {{ netplan_dir }}, mas encontrei {{ netplan_files.files | length }}"
+      when: netplan_files.files | length != 1
+
+    - name: Define o caminho do arquivo Netplan encontrado
+      set_fact:
+        netplan_file: "{{ netplan_files.files[0].path }}"
+
+    - name: Lê conteúdo atual do Netplan
+      slurp:
+        src: "{{ netplan_file }}"
+      register: netplan_raw
+
+    - name: Decodifica conteúdo atual
+      set_fact:
+        netplan_content: "{{ netplan_raw.content | b64decode }}"
+
+    - name: Converte o conteúdo YAML para dicionário
+      set_fact:
+        netplan_dict: "{{ netplan_content | from_yaml }}"
+
+    - name: Descobre o nome da interface de rede
+      set_fact:
+        interface_name: "{{ netplan_dict.network.ethernets.keys() | list | first }}"
+
+    - name: Remove todos os blocos antigos de nameservers
+      set_fact:
+        netplan_cleaned: >-
+          {{
+            netplan_content |
+            regex_replace('(?ms)^\\s{6}nameservers:\\n(\\s{8,}.*\\n?)*', '')
+          }}
+
+    - name: Gera novo bloco indentado (6 espaços)
+      set_fact:
+        nameservers_block: "{{ 'nameservers:\n  search: [' ~ dns_name ~ ']\n  addresses: [' ~ dns_address ~ ']' | indent(6) }}"
+
+    - name: Insere nameservers dentro da interface detectada "{{ interface_name }}"
+      set_fact:
+        netplan_final: >-
+          {{
+            netplan_cleaned |
+            regex_replace('(^\\s{4}' ~ interface_name ~ ':\\s*\\n)', '\\1' ~ (nameservers_block ~ '\n'), multiline=True)
+          }}
+
+    - name: Escreve novo conteúdo no arquivo Netplan
+      copy:
+        dest: "{{ netplan_file }}"
+        content: "{{ netplan_final }}"
+        backup: yes
+        mode: '0600'
+
+    - name: Aplica nova configuração de rede
+      command: netplan apply

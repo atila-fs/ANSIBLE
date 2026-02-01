@@ -1,0 +1,165 @@
+---
+- name: Gerenciar Netplan via Survey (addresses, gateway4, nameservers)
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    netplan_config_file: "/etc/netplan/01-netcfg.yaml"
+    netplan_iface: "eth0"
+
+    netplan_addresses_csv: ""
+    netplan_gateway4: ""
+
+    netplan_dns_addresses_csv: ""
+    netplan_dns_search_csv: ""
+
+  tasks:
+    - name: Validar campos obrigatorios do Survey
+      ansible.builtin.fail:
+        msg: "Survey incompleto. Preencha netplan_addresses_csv, netplan_gateway4 e netplan_dns_addresses_csv."
+      when: >
+        (netplan_addresses_csv | trim) == "" or
+        (netplan_gateway4 | trim) == "" or
+        (netplan_dns_addresses_csv | trim) == ""
+
+    - name: Normalizar entradas do Survey (CSV -> listas)
+      ansible.builtin.set_fact:
+        netplan_addresses: >-
+          {{
+            netplan_addresses_csv.split(',')
+            | map('trim')
+            | reject('equalto','')
+            | list
+          }}
+        netplan_dns_addresses: >-
+          {{
+            netplan_dns_addresses_csv.split(',')
+            | map('trim')
+            | reject('equalto','')
+            | list
+          }}
+        netplan_dns_search: >-
+          {{
+            (netplan_dns_search_csv | default('')).split(',')
+            | map('trim')
+            | reject('equalto','')
+            | list
+          }}
+
+    - name: Montar dict de nameservers (search opcional)
+      ansible.builtin.set_fact:
+        netplan_nameservers: >-
+          {{
+            {'addresses': netplan_dns_addresses}
+            | combine( ({'search': netplan_dns_search} if (netplan_dns_search | length) > 0 else {}), recursive=True )
+          }}
+
+    - name: Verificar se o arquivo netplan existe
+      ansible.builtin.stat:
+        path: "{{ netplan_config_file }}"
+      register: np
+
+    - name: Falhar se o arquivo netplan nao existir
+      ansible.builtin.fail:
+        msg: "Arquivo netplan nao encontrado: {{ netplan_config_file }}"
+      when: not np.stat.exists
+
+    - name: Backup do netplan atual
+      ansible.builtin.copy:
+        src: "{{ netplan_config_file }}"
+        dest: "{{ netplan_config_file }}.bak"
+        remote_src: true
+        mode: preserve
+
+    - name: Ler netplan atual
+      ansible.builtin.slurp:
+        path: "{{ netplan_config_file }}"
+      register: netplan_raw
+
+    - name: Parse YAML
+      ansible.builtin.set_fact:
+        netplan_obj: "{{ (netplan_raw.content | b64decode) | from_yaml }}"
+
+    - name: Garantir estrutura esperada (network.ethernets.<iface>)
+      ansible.builtin.fail:
+        msg: "Estrutura esperada nao encontrada: network.ethernets.{{ netplan_iface }}"
+      when: >
+        (netplan_obj.network is not defined)
+        or (netplan_obj.network.ethernets is not defined)
+        or (netplan_obj.network.ethernets[netplan_iface] is not defined)
+
+    - name: Aplicar somente addresses, gateway4 e nameservers na interface
+      ansible.builtin.set_fact:
+        netplan_new: >-
+          {{
+            netplan_obj
+            | combine(
+                {
+                  'network': (
+                    netplan_obj.network
+                    | combine(
+                        {
+                          'ethernets': (
+                            netplan_obj.network.ethernets
+                            | combine(
+                                {
+                                  (netplan_iface): (
+                                    (netplan_obj.network.ethernets[netplan_iface] | default({}))
+                                    | combine(
+                                        {
+                                          'addresses': netplan_addresses,
+                                          'gateway4': (netplan_gateway4 | trim),
+                                          'nameservers': netplan_nameservers
+                                        },
+                                        recursive=True
+                                      )
+                                  )
+                                },
+                                recursive=True
+                              )
+                          )
+                        },
+                        recursive=True
+                      )
+                  )
+                },
+                recursive=True
+              )
+          }}
+
+    - name: Escrever netplan atualizado
+      ansible.builtin.copy:
+        dest: "{{ netplan_config_file }}"
+        content: "{{ netplan_new | to_nice_yaml(indent=2, sort_keys=false) }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Validar netplan (generate)
+      ansible.builtin.command: netplan generate
+      changed_when: false
+
+    - name: Aplicar netplan (apply)
+      ansible.builtin.command: netplan apply
+      changed_when: true
+
+  rescue:
+    - name: Restaurar backup se falhar
+      ansible.builtin.copy:
+        src: "{{ netplan_config_file }}.bak"
+        dest: "{{ netplan_config_file }}"
+        remote_src: true
+        mode: preserve
+
+    - name: Tentar netplan generate apos rollback
+      ansible.builtin.command: netplan generate
+      changed_when: false
+
+    - name: Tentar netplan apply apos rollback
+      ansible.builtin.command: netplan apply
+      changed_when: true
+
+    - name: Falhar informando rollback
+      ansible.builtin.fail:
+        msg: "Falha ao aplicar netplan. Backup restaurado em {{ netplan_config_file }}.bak"

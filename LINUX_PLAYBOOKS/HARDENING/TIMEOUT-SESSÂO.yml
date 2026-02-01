@@ -1,0 +1,54 @@
+---
+- name: Configure session timeout
+  become: true
+  hosts: all
+
+  vars:
+    session_timeout: "TMOUT=500"
+
+  tasks:
+    - name: Adicionar TMOUT no /etc/profile (global)
+      lineinfile:
+        path: /etc/profile
+        line: "{{ session_timeout }}"
+        create: true
+        state: present
+        insertafter: EOF
+      register: profile_result
+
+    - name: Status da alteração em /etc/profile
+      debug:
+        var: profile_result.changed
+
+    - name: Adicionar TMOUT no .bashrc do usuário
+      lineinfile:
+        path: "/home/{{ ansible_user_id }}/.bashrc"
+        line: "{{ session_timeout }}"
+        create: true
+        state: present
+        insertafter: EOF
+      register: bashrc_result
+      when: ansible_user_id != 'root'
+
+    - name: Status da alteração no .bashrc
+      debug:
+        var: bashrc_result.changed
+      when: ansible_user_id != 'root'
+
+    - name: Exibir conteúdo final do .bashrc
+      command: cat "/home/{{ ansible_user_id }}/.bashrc"
+      register: bashrc_output
+      when: ansible_user_id != 'root'
+
+    - name: Saída do .bashrc
+      debug:
+        var: bashrc_output.stdout_lines
+      when: ansible_user_id != 'root'
+
+    - name: Exibir conteúdo final do /etc/profile
+      shell: cat /etc/profile
+      register: profile_output
+
+    - name: Saída do /etc/profile
+      debug:
+        var: profile_output.stdout_lines

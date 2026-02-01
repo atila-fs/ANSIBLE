@@ -1,0 +1,47 @@
+---
+- name: Instala o serviço snmpd no Ubuntu
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualiza os pacotes 
+      shell: sudo apt-get update
+      register: command0
+    - name: Saida do comando
+      debug:
+        var: command0.stdout_lines
+
+    - name: Instala o SNMPD no servidor 
+      shell: sudo apt-get install snmp snmpd -y ; systemctl enable snmpd;
+      register: command1
+    - name: Saida do comando
+      debug:
+        var: command1.stdout_lines
+
+    - name: Cria o arquivo de configuração do SNMPD
+      shell: echo > /etc/snmp/snmpd.conf; 
+      register: command2
+    - name: Saida do comando
+      debug:
+        var: command2.stdout_lines
+
+    - name: Configura a community no arquivo de configuração
+      shell: echo "rocommunity safeweb_snmp" | sudo tee -a /etc/snmp/snmpd.conf > /dev/null; 
+      register: command3
+    - name: Saida do comando
+      debug:
+        var: command3.stdout_lines
+
+    - name: Configura o agent no arquivo de configuração
+      shell: echo "agentAddress  udp:161" | sudo tee -a /etc/snmp/snmpd.conf > /dev/null; 
+      register: command4
+    - name: Saida do comando
+      debug:
+        var: command4.stdout_lines
+
+    - name: Reinicia e valida o status do SNMPD
+      shell: systemctl restart snmpd; systemctl status snmpd
+      register: command5
+    - name: Saida do comando
+      debug:
+        var: command5.stdout_lines

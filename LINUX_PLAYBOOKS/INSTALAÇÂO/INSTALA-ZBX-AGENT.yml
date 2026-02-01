@@ -1,0 +1,78 @@
+---
+- name: Instalar e configurar Zabbix Agent
+  hosts: all
+  gather_facts: yes
+  vars_prompt:
+    - name: "prx"
+      prompt: "Informe o IP ou hostname do servidor Zabbix (Proxy ou Server)"
+      private: no
+
+  tasks:
+    - name: Adicionar repositório focal-security
+      ansible.builtin.apt_repository:
+        repo: "deb http://security.ubuntu.com/ubuntu focal-security main"
+        filename: focal-security
+        state: present
+
+    - name: Atualizar cache do APT
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Instalar dependência libssl1.1
+      ansible.builtin.apt:
+        name: libssl1.1
+        state: present
+
+    - name: Baixar pacote Zabbix release
+      ansible.builtin.get_url:
+        url: https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-4+ubuntu22.04_all.deb
+        dest: /tmp/zabbix-release.deb
+
+    - name: Instalar pacote Zabbix release
+      ansible.builtin.apt:
+        deb: /tmp/zabbix-release.deb
+
+    - name: Atualizar cache do APT novamente
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Instalar Zabbix Agent
+      ansible.builtin.apt:
+        name: zabbix-agent
+        state: present
+
+    - name: Reiniciar Zabbix Agent
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: restarted
+
+    - name: Habilitar Zabbix Agent no boot
+      ansible.builtin.service:
+        name: zabbix-agent
+        enabled: yes
+
+    - name: Ajustar parâmetro Server no zabbix_agent.conf
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_agent.conf
+        regexp: '^Server='
+        line: "Server={{ prx }}"
+        backup: yes
+
+    - name: Ajustar parâmetro ServerActive no zabbix_agent.conf
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_agent.conf
+        regexp: '^ServerActive='
+        line: "ServerActive={{ prx }}"
+        backup: yes
+
+    - name: Ajustar Hostname no zabbix_agent.conf com ansible_hostname
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_agent.conf
+        regexp: '^Hostname='
+        line: "Hostname={{ ansible_hostname }}"
+        backup: yes
+
+    - name: Reiniciar novamente para aplicar conf final
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: restarted

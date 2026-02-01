@@ -1,0 +1,25 @@
+---
+- name: Instala o serviço SSSD no Ubuntu
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualiza a lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Instala o SSSD
+      apt:
+        name: sssd
+        state: latest
+      register: install
+    - name: Status instalação
+      debug:
+        var: install.stdout_lines
+
+    - name: Desabilitar o serviço do SSSD
+      shell: systemctl disable sssd
+      register: disable
+    - name: Status da ação
+      debug:
+        var: disable.stdout_lines

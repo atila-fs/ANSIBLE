@@ -1,0 +1,128 @@
+---
+- name: Configuração de autenticação LDAP
+  hosts: all
+  become: true
+  vars:
+    domain: "{{ domain }}"
+    user: "{{ user }}"
+    pass: "{{ pass }}"
+  tasks:
+    - name: Atualiza lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Desativa o IPv6
+      blockinfile:
+        path: /etc/sysctl.conf
+        block: |
+          # Desabilita o IPv6 permanentemente do servidor
+          net.ipv6.conf.all.disable_ipv6 = 1
+          net.ipv6.conf.default.disable_ipv6 = 1
+          net.ipv6.conf.lo.disable_ipv6 = 1
+
+    - name: Aplica alterações no sysctl
+      command: sysctl -p
+
+    - name: Ajusta timezone
+      command: timedatectl set-timezone America/Sao_Paulo
+
+    - name: Define local para formato 24h
+      command: localectl set-locale LC_TIME=pt_BR.UTF-8
+
+    - name: Gera locais
+      command: locale-gen
+
+    - name: Descobre domínio
+      command: realm discover {{ domain }}
+      register: desc
+
+    - debug:
+        var: desc.stdout_lines
+
+    - name: Entra no domínio usando expect
+      expect:
+        command: realm join -U {{ user }} {{ domain }}
+        responses:
+          'Password for {{ user }}:': "{{ pass }}"
+      register: join_realm
+
+    - debug:
+        var: join_realm.stdout_lines
+
+    - name: Lista domínio
+      command: realm list
+      register: realm_list
+
+    - debug:
+        var: realm_list.stdout_lines
+
+    - name: Configura mkhomedir PAM
+      copy:
+        dest: /usr/share/pam-configs/mkhomedir
+        content: |
+          Name: activate mkhomedir
+          Default: yes
+          Priority: 900
+          Session-Type: Additional
+          Session:
+              required pam_mkhomedir.so umask=0022 skel=/etc/skel
+
+    - name: Limpa o arquivo sssd.conf
+      copy:
+        content: ""
+        dest: /etc/sssd/sssd.conf
+
+    - name: Configura sssd.conf
+      copy:
+        dest: /etc/sssd/sssd.conf
+        content: |
+          [sssd]
+          domains = {{ domain }}
+          config_file_version = 2
+          services = nss, pam
+
+          [domain/{{ domain }}]
+          default_shell = /bin/bash
+          krb5_store_password_if_offline = True
+          cache_credentials = True
+          krb5_realm = {{ domain }}
+          realmd_tags = manages-system joined-with-adcli
+          id_provider = ad
+          fallback_homedir = /home/%u@%d
+          ad_domain = {{ domain }}
+          use_fully_qualified_names = False
+          ldap_id_mapping = True
+          access_provider = simple
+          simple_allow_groups = {active_directory_group}
+          access_provider = permit
+
+    - name: Ajusta permissões do sssd.conf
+      file:
+        path: /etc/sssd/sssd.conf
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Reinicia serviço sssd
+      systemd:
+        name: sssd
+        state: restarted
+        enabled: yes
+
+    - name: Testa comunicação com AD
+      command: id {{ user }}
+      register: test_id
+
+    - debug:
+        var: test_id.stdout_lines
+
+    - name: Configura sudoers para grupo AD
+      copy:
+        dest: /etc/sudoers.d/admins
+        content: |
+          %S-1-5-21-2824668353-1629412153-887159868-10975 ALL=(ALL) ALL
+          %{active_directory_group} ALL=(ALL) ALL
+        mode: '0440'
+
+    - name: Permite grupo no realm
+      command: sudo realm permit -g {active_directory_group}

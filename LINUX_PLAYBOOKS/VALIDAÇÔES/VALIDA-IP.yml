@@ -1,0 +1,14 @@
+---
+- name: Valida as configurações do netplan 
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Realiza um CAT para pegar as informações do netplan 
+      shell: cat /etc/netplan/*.yaml
+      register: cat_output
+      changed_when: false
+
+    - name: Imprime no terminal a informação 
+      debug:
+        var: cat_output.stdout_lines

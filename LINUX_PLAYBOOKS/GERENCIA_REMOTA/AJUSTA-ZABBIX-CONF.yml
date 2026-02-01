@@ -1,0 +1,108 @@
+---
+- name: Ajustar Zabbix Agent/Agent2 AllowKey e EnableRemoteCommands e reiniciar serviço
+  hosts: all
+  gather_facts: no
+  vars_files:
+    - group_vars/windows.yml
+
+  vars:
+    allowkey_line: 'AllowKey=system.run[*]'
+    remote_line: 'EnableRemoteCommands=1'
+    zabbix_targets:
+      - conf: 'C:\Program Files\Zabbix Agent\zabbix_agentd.conf'
+        service: 'Zabbix Agent'
+      - conf: 'C:\Program Files\Zabbix Agent 2\zabbix_agent2.conf'
+        service: 'Zabbix Agent 2'
+
+  tasks:
+    - name: Garantir AllowKey e EnableRemoteCommands no conf (sem colar no fim da ultima linha)
+      win_shell: |
+        $conf = "{{ item.conf }}"
+        $allowLine  = "{{ allowkey_line }}"
+        $remoteLine = "{{ remote_line }}"
+
+        if (!(Test-Path -LiteralPath $conf)) {
+          Write-Output "SKIP"
+          exit 0
+        }
+
+        $raw  = Get-Content -LiteralPath $conf -Raw -ErrorAction Stop
+        $orig = $raw
+        $changes = 0
+
+        function Ensure-AllowKey {
+          param([string]$DesiredLine)
+
+          # Se ja existe exatamente a linha, nao faz nada
+          if ($script:raw -match "(?m)^\Q$DesiredLine\E$") { return }
+
+          # Se existir AllowKey ativo, substitui
+          $reActive = "(?m)^[ \t]*AllowKey\s*=.*$"
+          if ($script:raw -match $reActive) {
+            $script:raw = [regex]::Replace($script:raw, $reActive, $DesiredLine)
+            $script:changes++
+            return
+          }
+
+          # Se existir AllowKey comentado, descomenta e substitui
+          $reComment = "(?m)^[ \t]*#[ \t]*AllowKey\s*=.*$"
+          if ($script:raw -match $reComment) {
+            $script:raw = [regex]::Replace($script:raw, $reComment, $DesiredLine)
+            $script:changes++
+            return
+          }
+
+          # Nao existe: adiciona no final com CRLF garantido
+          if ($script:raw.Length -gt 0 -and -not ($script:raw.EndsWith("`r`n") -or $script:raw.EndsWith("`n"))) {
+            $script:raw = $script:raw + "`r`n" + $DesiredLine + "`r`n"
+          } else {
+            $script:raw = $script:raw + $DesiredLine + "`r`n"
+          }
+          $script:changes++
+        }
+
+        function Ensure-EnableRemoteCommands-IfPresent {
+          param([string]$DesiredLine)
+
+          # Se existe ativo, substitui
+          $reActive = "(?m)^[ \t]*EnableRemoteCommands\s*=.*$"
+          if ($script:raw -match $reActive) {
+            $script:raw = [regex]::Replace($script:raw, $reActive, $DesiredLine)
+            $script:changes++
+            return $true
+          }
+
+          # Se existe comentado, descomenta e substitui
+          $reComment = "(?m)^[ \t]*#[ \t]*EnableRemoteCommands\s*=.*$"
+          if ($script:raw -match $reComment) {
+            $script:raw = [regex]::Replace($script:raw, $reComment, $DesiredLine)
+            $script:changes++
+            return $true
+          }
+
+          # Nao existe: nao adiciona
+          return $false
+        }
+
+        # 1) Ajusta EnableRemoteCommands SOMENTE se existir (ativo ou comentado)
+        $remoteFound = Ensure-EnableRemoteCommands-IfPresent -DesiredLine $remoteLine
+
+        # 2) AllowKey: garante (substitui/descomenta/adiciona no EOF com CRLF)
+        Ensure-AllowKey -DesiredLine $allowLine
+
+        if ($script:raw -ne $orig) {
+          Set-Content -LiteralPath $conf -Value $script:raw -Encoding ASCII
+          Write-Output "CHANGED"
+        } else {
+          Write-Output "OK"
+        }
+      register: addline
+      changed_when: "'CHANGED' in (addline.stdout | default(''))"
+      failed_when: addline.rc not in [0]
+      loop: "{{ zabbix_targets }}"
+
+    - name: Reiniciar serviço quando houve mudança
+      win_shell: |
+        Restart-Service -Name "{{ item.item.service }}" -Force
+      when: item.changed
+      loop: "{{ addline.results }}"

@@ -1,0 +1,44 @@
+# Variavéis #
+all:
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_become: true
+  children:
+
+# Todos servidores Linux/Windows #
+    todos:
+      hosts:
+        P-DC-LNX-WEB01:
+          ansible_host: 192.168.100.100
+        P-DC-WND-BD01:
+          ansible_host: 192.168.100.101
+        H-DC-LNX-WEB01:
+          ansible_host: 192.168.100.102
+
+# Todos servidores Linux #
+    linux:
+      hosts:
+        P-DC-LNX-WEB01:
+          ansible_host: 192.168.100.100
+        H-DC-LNX-WEB01:
+          ansible_host: 192.168.100.102
+
+# Todos servidores Windows #
+    windows:
+      hosts:
+        P-DC-WND-BD01:
+          ansible_host: 192.168.100.101
+
+# Todos servidores de produção #
+    producao:
+      hosts:
+        P-DC-LNX-WEB01:
+          ansible_host: 192.168.100.100
+        P-DC-WND-BD01:
+          ansible_host: 192.168.100.101
+
+# Todos servidores de homologação #
+    homologacao:
+      hosts:
+        H-DC-LNX-WEB01:
+          ansible_host: 192.168.100.102

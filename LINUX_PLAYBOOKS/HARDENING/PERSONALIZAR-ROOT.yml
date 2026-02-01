@@ -1,0 +1,53 @@
+---
+- name: Personalizar terminal do usuário root
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: Adicionar configurações ao .bashrc do root
+      blockinfile:
+        path: /root/.bashrc
+        marker: "# {mark} CONFIGURACOES PERSONALIZADAS"
+        block: |
+          # Define timeout de sessão (logout automático após 5 minutos de inatividade)
+          TMOUT=300
+
+          # Alias para listagem longa com detalhes e human-readable
+          alias ll='ls -lah --color=auto'
+
+          # Alias para listar arquivos ocultos também
+          alias la='ls -A --color=auto'
+
+          # Alias para listagem simples com barras indicando diretórios
+          alias l='ls -CF --color=auto'
+
+          # Alias para subir um ou dois diretórios com facilidade
+          alias ..='cd ..'
+          alias ...='cd ../..'
+
+          # Alias para grep com realce de cor nos resultados
+          alias grep='grep --color=auto'
+
+          # Alias para mostrar uso de disco em formato legível
+          alias df='df -h'
+          alias du='du -h'
+
+          # Alias para atualizar sistema via apt (substituir se necessário)
+          alias update='apt update && apt upgrade -y'
+
+          # Customiza o prompt (PS1):
+          export PS1='\[\e[1;31m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+
+          # Ativa auto-completar inteligente se disponível
+          if [ -f /etc/bash_completion ]; then
+              . /etc/bash_completion
+          fi
+
+          # Força terminal com 256 cores
+          export TERM=xterm-256color
+
+    - name: Aplicar as mudanças no shell (opcional)
+      shell: source /root/.bashrc
+      args:
+        executable: /bin/bash

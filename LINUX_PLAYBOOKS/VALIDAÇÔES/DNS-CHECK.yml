@@ -1,0 +1,14 @@
+---
+- name: Valida qual DNS setado no NETPLAN
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Realiza o comando para validar o DNS
+      shell: cat /etc/netplan/00-installer-config.yaml | grep "addresses" | head -n 2 | tail -n1
+      register: cat_output
+      changed_when: false
+
+    - name: Imprime no terminal a informação
+      debug:
+        var: cat_output.stdout_lines

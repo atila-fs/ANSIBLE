@@ -1,0 +1,48 @@
+---
+- name: Atualizar Windows via Windows Update
+  hosts: windows
+  gather_facts: false
+  tasks:
+
+    - name: Listar updates disponíveis (sem instalar)
+      ansible.windows.win_updates:
+        state: searched
+        # Ajuste as categorias se quiser restringir
+        category_names:
+          - CriticalUpdates
+          - SecurityUpdates
+          - UpdateRollups
+          - Updates
+      register: wu_search
+
+    - name: Mostrar updates pendentes (se houver)
+      ansible.builtin.debug:
+        msg: >-
+          Updates pendentes: {{
+            (wu_search.updates | default({}))
+            | dict2items
+            | map(attribute='value.title')
+            | list
+          }}
+      when: (wu_search.found_update_count | default(0) | int) > 0
+
+    - name: Instalar updates (somente se houver pendentes)
+      ansible.windows.win_updates:
+        state: installed
+        category_names:
+          - CriticalUpdates
+          - SecurityUpdates
+          - UpdateRollups
+          - Updates
+        reboot: true
+      register: wu_install
+      when: (wu_search.found_update_count | default(0) | int) > 0
+
+    - name: Mostrar resumo da instalação
+      ansible.builtin.debug:
+        msg:
+          - "Encontrados: {{ wu_search.found_update_count | default(0) }}"
+          - "Instalados: {{ wu_install.installed_update_count | default(0) }}"
+          - "Falhas: {{ wu_install.failed_update_count | default(0) }}"
+          - "Reboot necessário: {{ wu_install.reboot_required | default(false) }}"
+      when: wu_install is defined

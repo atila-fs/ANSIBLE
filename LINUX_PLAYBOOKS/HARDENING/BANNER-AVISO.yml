@@ -1,0 +1,78 @@
+---
+- name: Configurar mensagens de login e banner SSH
+  become: true
+  hosts: all
+
+  tasks:
+
+  - name: Configurar mensagem de login padrão
+    copy:
+      content: |
+        =============================================================================================================================================================
+        ESTE SISTEMA E DE USO PRIVATIVO. SUA UTILIZACAO POR PESSOAS NAO AUTORIZADAS E TERMINANTEMENTE PROIBIDA.
+        TODOS OS ACESSOS SAO REGISTRADOS E MONITORADOS.
+        PERMANECENDO CONECTADO VOCE AUTOMATICAMENTE ACEITA ESSA CONDICAO E PODERA SER PENALIZADO DE ACORDO COM A POLITICA DE SEGURANCA E COM A LEGISLACAO VIGENTE.
+        =============================================================================================================================================================
+      dest: /etc/motd
+    register: task1
+
+  - name: Status da task
+    debug:
+      var: task1.stdout_lines
+
+  - name: Configurar banner SSH
+    blockinfile:
+      path: /etc/ssh/sshd_config
+      block: |
+        #Banner none
+        Banner /etc/mybanner
+      marker: ""
+    register: task2
+
+  - name: Status da task
+    debug:
+      var: task2.stdout_lines
+
+  - name: Criar arquivo de banner
+    copy:
+      content: |
+        ==============================================================================
+        SISTEMA DE USO PRIVATIVO. ACESSO NAO AUTORIZADO E TERMINANTEMENTE PROIBIDO.
+        ==============================================================================
+      dest: /etc/mybanner
+    register: task3
+
+  - name: Status da task
+    debug:
+      var: task3.stdout_lines
+
+  - name: Reiniciar serviço SSH
+    service:
+      name: sshd
+      state: restarted
+    register: task4
+
+  - name: Status da task
+    debug:
+      var: task4.stdout_lines
+
+  - name: Cat no arquivo /etc/motd
+    shell: cat /etc/motd
+    register: prof
+  - name: Saida do comando
+    debug:
+      var: prof.stdout_lines
+
+  - name: Cat no arquivo /etc/ssh/sshd_config
+    shell: cat /etc/ssh/sshd_config
+    register: prof2
+  - name: Saida do comando
+    debug:
+      var: prof2.stdout_lines
+
+  - name: Cat no arquivo /etc/mybanner
+    shell: cat /etc/mybanner
+    register: prof3
+  - name: Saida do comando
+    debug:
+      var: prof3.stdout_lines

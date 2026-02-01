@@ -1,0 +1,97 @@
+---
+- name: Atualizar configurações do Chronyd
+  hosts: all
+  become: true
+  tasks:
+    - name: Atualiza a lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Instala o Chrony
+      apt:
+        name: chrony
+        state: latest
+      register: install
+    - name: Status instalação
+      debug:
+        var: install.stdout_lines
+
+    - name: Seta o timezone para America/Sao_Paulo
+      shell: timedatectl set-timezone America/Sao_Paulo
+      register: installstate
+    - name: Status instalação
+      debug:
+        var: installstate.stdout_lines
+
+    - name: Habilitar o serviço do Chrony
+      shell: systemctl enable chrony
+      register: enable
+    - name: Status da ação
+      debug:
+        var: enable.stdout_lines
+
+    - name: Formata o relogio para o formato 24H
+      shell: localectl set-locale LC_TIME=pt_BR.UTF-8
+
+    - name: Aplica as configurações no localectl
+      shell: locale-gen
+
+    - name: Reiniciar o serviço Chronyd
+      shell: systemctl restart chrony
+      register: restart
+    - name: Status do restart
+      debug:
+        var: restart.stdout_lines
+
+    - name: Mostra o status do serviço Chronyd
+      shell: systemctl status chrony
+      register: status
+    - name: Exibe o status
+      debug:
+        var: status.stdout_lines
+
+    - name: Remover todas as linhas "pool" do arquivo de configuração
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        state: absent
+        regexp: '^pool'
+
+    - name: Inserir novo bloco "pool" no final do arquivo
+      blockinfile:
+        path: /etc/chrony/chrony.conf
+        block: |
+          # NTP POOL SYNC SOURCE #
+          pool ecds.local iburst maxsources 4
+          pool <IP1> iburst maxsources 4
+          pool <IP2> iburst maxsources 4
+          pool <IP3> iburst maxsources 4
+
+    - name: Restart chrony
+      shell: systemctl restart chronyd
+      register: ntp
+    - name:
+      debug:
+        var: ntp.stdout_lines
+
+    - name: Valida se as alterações foram realmente feitas
+      shell: cat /etc/chrony/chrony.conf | grep '^pool'
+      register: cat_output
+      changed_when: false
+
+    - name: Cat no arquivo de configuração
+      debug:
+        var: cat_output.stdout_lines
+
+    - name: Valida o NTP
+      shell: chronyc sources
+      register: ntp2
+    - name:
+      debug:
+        var: ntp2.stdout_lines
+
+    - name: Valida o horario
+      shell: date
+      register: date
+    - name: Mostra o horario na tela
+      debug:
+        var: date.stdout_lines

@@ -1,0 +1,52 @@
+---
+- name: Atualizar configurações do SSH
+  hosts: all
+  become: true
+  tasks:
+    - name: Obter o IP interno utilizado para SSH
+      set_fact:
+        ssh_internal_ip: "{{ ansible_default_ipv4.address }}"
+      changed_when: false
+      check_mode: false
+      register: ipv4
+    - name: IP que foi reconhecido
+      debug:
+        var: ipv4.stdout_lines
+
+
+
+    - name: Descomentar e atualizar o arquivo de configuração do SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?ListenAddress\\s+.*$"
+        line: "ListenAddress {{ ansible_default_ipv4.address }}"
+        state: present
+
+    - name: Valida se as alterações foram realmente feitas
+      shell: cat /etc/ssh/sshd_config | grep ListenAddress
+      register: cat
+    - name: Cat no arquivo de configuração
+      debug:
+        var: cat.stdout_lines
+
+    - name: restart sshd
+      shell: systemctl restart sshd
+      register: sshd
+    - name:
+      debug:
+        var: sshd.stdout_lines
+
+    - name: Exibir o status do serviço SSH
+      shell: systemctl status sshd
+      register: sshd_status
+    - name: Status do serviço SSH
+      debug:
+        var: sshd_status.stdout_lines
+
+    - name: Exibir o status final das alterações do SSH
+      shell: ss -tulpn | grep :22
+      register: ssh
+    - name: Valida se a porta 22 esta com SSH Fechado
+      debug:
+        var: ssh.stdout_lines
+

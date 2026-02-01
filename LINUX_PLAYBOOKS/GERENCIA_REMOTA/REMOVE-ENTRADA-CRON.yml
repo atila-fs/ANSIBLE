@@ -1,0 +1,12 @@
+---
+- name: Remover cron EXATO - Zabbix job - VALIDATE-KERNEL-UPDATE.sh (SEDE)
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Remover somente o cron com esse nome
+      ansible.builtin.cron:
+        name: "Zabbix job - VALIDATE-KERNEL-UPDATE.sh"
+        user: root
+        state: absent

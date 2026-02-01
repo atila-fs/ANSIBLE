@@ -1,0 +1,16 @@
+---
+- name: Extrair informações do arquivo de configuração
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Extrair informações do arquivo de configuração
+      ansible.builtin.shell: >
+        grep -E '{{ keyword }}' {{ file }}
+      register: config_info
+      changed_when: false
+
+    - name: Exibir informações extraídas
+      debug:
+        var: config_info.stdout_lines

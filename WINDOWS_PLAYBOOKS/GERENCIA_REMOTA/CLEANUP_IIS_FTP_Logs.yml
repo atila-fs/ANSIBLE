@@ -1,0 +1,31 @@
+---
+- name: Limpeza de logs IIS e FTP
+  hosts: all
+  gather_facts: yes
+
+  tasks:
+    - name: Remover logs antigos IIS e FTP
+      win_powershell: |
+        # ===============================
+        # LIMPEZA DE LOGS IIS + FTP
+        # ===============================
+
+        $DiasRetencao = 7
+        $dataLimite = (Get-Date).AddDays(-$DiasRetencao)
+        $caminhoBase = "C:\inetpub\logs"
+        $prefixos = @("W3SVC", "FTPSVC")
+
+        foreach ($prefixo in $prefixos) {
+            Get-ChildItem -Path $caminhoBase -Directory -Filter "$prefixo*" -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $caminho = $_.FullName
+                Write-Output "Verificando: $caminho"
+
+                Get-ChildItem -Path $caminho -Filter *.log -File -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt $dataLimite } |
+                ForEach-Object {
+                    Write-Output "Excluindo: $($_.FullName)"
+                    Remove-Item -Path $_.FullName -Force
+                }
+            }
+        }

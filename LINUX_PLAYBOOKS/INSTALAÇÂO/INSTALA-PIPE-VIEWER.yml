@@ -1,0 +1,17 @@
+---
+- name: Instala a ferramenta Pipe Viewer
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Atualiza a lista de pacotes
+      apt:
+        update_cache: yes
+
+    - name: Instala o Pipe Viewer
+      shell: apt-get install pv
+      register: var1
+    - name: Status da ação
+      debug:
+        var: var1.stdout_lines
+
